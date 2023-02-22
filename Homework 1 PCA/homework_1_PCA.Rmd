@@ -1,0 +1,511 @@
+---
+title: "Homework 1. PCA. (60 Points)"
+author: "Zeming Zhang"
+date: '2023-02-03'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+always_allow_html: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Part 1. PCA vs Linear Regression (6 points).
+
+Let's say we have two 'features': let one be $x$ and another $y$. Recall
+that in linear regression, we are looking to get a model like:
+
+$$y_i=\beta_0+\beta_1*x_i+\varepsilon_i$$
+
+after the fitting, for each data point we would have:
+$$y_i=\hat{\beta_0}+\hat{\beta_1}*x_i+r_i$$ where $r_i$ is residual. It
+can be rewritten as:
+
+$$\hat{\beta_0}+r_i=y_i-\hat{\beta_1}*x_i\;\;\;\;\;(1)$$
+
+The first principal component $z_1$ calculated on $(x,y)$ is
+$$z_{i1}=\phi_{i1}y_i+\phi_{i2}x_i$$ Dividing it by $\phi_{i1}$:
+$$\frac{z_{i1}}{\phi_{i1}}=y_i+\frac{\phi_{i2}}{\phi_{i1}}x_i\;\;\;\;\;(2)$$
+
+There is a functional resemblance between equations (1) and (2)
+(described linear relationship between $y$ and $x$). Is the following
+true:
+
+$$\hat{\beta_0}+r_i=\frac{z_{i1}}{\phi_{i1}}$$
+$$\frac{\phi_{i2}}{\phi_{i1}}=-\hat{\beta_1}$$ **Answer**: *(just yes or
+no)* No
+
+What is the difference between linear regression coefficients
+optimization and first PCA calculations?
+**Answer**: Linear regression is used to find the best fit line or plane
+that explains the relationship between two or more variables, while PCA
+is used to reduce the dimensions of the data while retaining the maximum
+amount of information. Both techniques involve linear transformations of
+data, but they serve different purposes. Linear regression is used to
+predict the value of a dependent variable based on the values of one or
+more independent variables, while PCA is used to identify patterns or
+relationships between variables.
+*(here should be the answer. help yourself with a plot)*
+```{r}
+library(stats)
+
+# generate some sample data
+set.seed(0629)
+x <- rnorm(100)
+y <- 2*x + rnorm(100)
+
+# perform linear regression
+fit <- lm(y ~ x)
+
+# perform PCA
+data <- data.frame(x, y)
+pca <- princomp(data)
+
+# create a scatter plot of the data
+plot(x, y, xlab = "x", ylab = "y", main = "Linear Regression vs PCA")
+abline(fit, col = "blue", lwd = 2)
+arrows(0, 0, pca$loadings[1,1], pca$loadings[1,2], 
+       col = "red", length = 0.2, lwd = 3)
+```
+
+The blue line shows the linear regression best fit line and the red
+arrows represent the principal components from PCA. Linear regression
+predicts y based on x, while PCA finds patterns and relationships in the 
+underlying structure of the data.
+
+# Part 2. PCA Exercise (27 points).
+
+In this exercise we will study UK Smoking Data (`smoking.R`,
+`smoking.rda` or `smoking.csv`):
+
+**Description**
+
+Survey data on smoking habits from the UK. The data set can be used for
+analyzing the demographic characteristics of smokers and types of
+tobacco consumed.
+
+**Format**
+
+A data frame with 1691 observations on the following 12 variables.
+
+`gender` - Gender with levels Female and Male.
+
+`age` - Age.
+
+`marital_status` - Marital status with levels Divorced, Married,
+Separated, Single and Widowed.
+
+`highest_qualification` - Highest education level with levels A Levels,
+Degree, GCSE/CSE, GCSE/O Level, Higher/Sub Degree, No Qualification,
+ONC/BTEC and Other/Sub Degree
+
+`nationality` - Nationality with levels British, English, Irish,
+Scottish, Welsh, Other, Refused and Unknown.
+
+`ethnicity` - Ethnicity with levels Asian, Black, Chinese, Mixed, White
+and Refused Unknown.
+
+`gross_income` - Gross income with levels Under 2,600, 2,600 to 5,200,
+5,200 to 10,400, 10,400 to 15,600, 15,600 to 20,800, 20,800 to 28,600,
+28,600 to 36,400, Above 36,400, Refused and Unknown.
+
+`region` - Region with levels London, Midlands & East Anglia, Scotland,
+South East, South West, The North and Wales
+
+`smoke` - Smoking status with levels No and Yes
+
+`amt_weekends` - Number of cigarettes smoked per day on weekends.
+
+`amt_weekdays` - Number of cigarettes smoked per day on weekdays.
+
+`type` - Type of cigarettes smoked with levels Packets, Hand-Rolled,
+Both/Mainly Packets and Both/Mainly Hand-Rolled
+
+Source National STEM Centre, Large Datasets from stats4schools,
+<https://www.stem.org.uk/resources/elibrary/resource/28452/large-datasets-stats4schools>.
+
+Obtained from <https://www.openintro.org/data/index.php?data=smoking>
+
+## Read and Clean the Data
+
+2.1 Read the data from smoking.R or smoking.rda (3 points) \> hint: take
+a look at source or load functions \> there is also smoking.csv file for
+a refference
+```{r setup, results="hide", warning=F, message=F}
+# load libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(forcats)
+```
+
+```{r}
+# Load data
+smoking_data <- data.frame(source("smoking.R"))
+```
+
+Take a look into data
+```{r}
+#Show the first few rows of the data.
+unique(smoking_data$value.smoke)
+head(smoking_data)
+```
+
+There are many fields there so for this exercise lets only concentrate
+on smoke, gender, age, marital_status, highest_qualification and
+gross_income.
+
+Create new data.frame with only these columns.
+```{r}
+# Create new data.frame with only mentioned columns
+new_data = data.frame(smoking_data$value.smoke, smoking_data$value.gender, 
+                      smoking_data$value.age, smoking_data$value.marital_status, 
+                      smoking_data$value.highest_qualification, 
+                      smoking_data$value.gross_income)
+
+head(new_data)
+```
+
+2.2 Omit all incomplete records.(3 points)
+```{r}
+# Omit all NA in records
+new_data <- na.omit(new_data)
+head(new_data)
+```
+
+2.3 For PCA feature should be numeric. Some of fields are binary
+(`gender` and `smoke`) and can easily be converted to numeric type (with
+one and zero). Other fields like `marital_status` has more than two
+categories, convert them to binary (i.e. is_married, is_devorced).
+Several features in the data set are ordinal (`gross_income` and
+`highest_qualification`), convert them to some kind of sensible level
+(note that levels in factors are not in order). (3 points)
+```{r}
+colnames(new_data) <- gsub(".*\\.", "", colnames(new_data))
+
+for (i in seq_along(unique(new_data$gross_income))) {
+  cat(sprintf("Index %d: %s\n", i, unique(new_data$gross_income)[i]))
+}
+
+# Convert smoke and gender to numeric binary
+new_data$gender <- ifelse(new_data$gender == "Male", 1, 0)
+new_data$smoke <- ifelse(new_data$smoke == "Yes", 1, 0)
+
+# Replace "Degree" with 2, "no qualifications" with 0, and all other with 1
+new_data$highest_qualification <- ifelse(
+  new_data$highest_qualification == "Degree", 2, 
+  ifelse(new_data$highest_qualification == "No Qualification", 0, 1))
+
+# Define a vector of income ranges in the desired order
+income_ranges <- c("Under 2,600", "2,600 to 5,200", "5,200 to 10,400", 
+                   "10,400 to 15,600","15,600 to 20,800", "20,800 to 28,600", 
+                   "28,600 to 36,400", "Above 36,400", "Refused", "Unknown")
+# Define a vector of corresponding numerical levels
+income_levels <- c(1, 2, 3, 4, 5, 6, 7, 8, -1, -1)
+
+# Map income ranges to numerical levels in new_data$gross_income
+new_data$gross_income <- match(new_data$gross_income, income_ranges)
+new_data$gross_income <- ifelse(is.na(new_data$gross_income), -1, 
+                                income_levels[new_data$gross_income])
+
+# This is for 2.9
+new_data_copy <- data.frame(new_data)
+
+# Create a new column for married status
+new_data$is_married <- ifelse(new_data$marital_status == "Married", 1, 0)
+
+# Create a new column for divorced status
+new_data$is_divorced <- ifelse(new_data$marital_status == "Divorced", 1, 0)
+
+# Create a new column for widowed status
+new_data$is_widowed <- ifelse(new_data$marital_status == "Widowed", 1, 0)
+
+# Create a new column for separated status
+new_data$is_separated <- ifelse(new_data$marital_status == "Separated", 1, 0)
+
+# Create a new column for single status 
+#(any status other than married, divorced, widowed, or separated)
+new_data$is_single <- ifelse(!(new_data$is_married|new_data$is_divorced
+                               |new_data$is_widowed|new_data$is_separated),1,0)
+
+# Drop the original columns
+new_data <- select(new_data, -marital_status)
+
+head(new_data)
+```
+
+2.4. Do PCA on all columns except smoking status. (3 points)
+```{r}
+# Exclude the "smoking" column from the dataset
+data_for_pca <- new_data[, !names(new_data) %in% "smoke"]
+
+# Perform PCA on the remaining columns
+pca_result <- prcomp(data_for_pca, scale. = TRUE)
+
+# Print the result
+pca_result
+```
+
+2.5 Make a scree plot (3 points)
+```{r}
+# Extract the variance explained by each principal component
+pca_var <- pca_result$sdev^2
+pca_var_percent <- pca_var / sum(pca_var) * 100
+
+# Create a data frame for the scree plot
+scree_data <- data.frame(
+  PC = 1:length(pca_var),
+  Variance = pca_var_percent
+)
+
+# Create the scree plot
+ggplot(scree_data, aes(x = PC, y = Variance)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous(breaks = 1:length(pca_var)) +
+  labs(x = "Principal Component", y = "Percent Variance Explained", 
+       title = "Scree Plot")
+```
+Comment on the shape, if you need to reduce dimensions home many would you choose
+
+The elbow in the scree plot indicates the optimal number of components to retain. 
+This point is where the slope of the curve changes dramatically. As a general 
+rule, principal components with eigenvalues greater than 1 should be retained. 
+So, based on the scree plot, we can determine that PC1 to PC3 should be retain. 
+However since the combination of the variance is around 54% we need to obtain 
+PC1 to PC6 this would increase the sum of variance percentage over 85%, 
+thus making PC6 our true elbow.
+
+2.6 Make a biplot color points by smoking field. (3 points)
+```{r}
+# Create a biplot
+biplot(pca_result, col = ifelse(new_data$smoke == 1, "black", "red"), 
+       cex = 0.3)
+
+# Add labels for each point
+for(i in 1:nrow(new_data)) {
+  text(pca_result$x[i,1], pca_result$x[i,2], labels = row.names(new_data)[i], 
+       pos = 3, cex = 0.3)
+}
+
+# Add axis labels and title
+xlab <- paste("PC1 (", round(pca_result$sdev[1] / sum(pca_result$sdev) * 100), 
+              "%)", sep = "")
+ylab <- paste("PC2 (", round(pca_result$sdev[2] / sum(pca_result$sdev) * 100), 
+              "%)", sep = "")
+ggtitle <- "PCA Biplot of Health Survey Data"
+ggplot2::labs(x = xlab, y = ylab, title = ggtitle)
+
+# Increase plot size
+options(repr.plot.width = 25, repr.plot.height = 25)
+```
+
+Comment on observed biplot.
+
+The biplot is a representation of the relationship between the variables (smoking 
+and non-smoking) and the principal components (PC1 and PC2) obtained through PCA step. 
+The plot shows that the smoking and non-smoking groups are well separated and 
+don't overlap, indicating that PC1 and PC2 do provide a clear separation between 
+the two groups. Additionally, there are some clustering of the smoking group in 
+the lower right quadrant of the plot, which also suggests that there are 
+association between smoking and the PCs.
+
+Can we use first two PC to discriminate smoking?
+
+Based on the observed biplot, it seems that the first two principal components 
+(PC1 and PC2) does provide a separation among  smoking and non-smoking groups. 
+Hence, we can use first two PC to discriminate smoking.
+
+2.7 Based on the loading vector can we name PC with some descriptive
+name? (3 points)
+
+Based on the loading vector, PC1 is mainly driven by the variables related to 
+marriage status, while PC2 is mainly driven by the variables related to age. 
+Therefore, PC1 can be named as the "marriage status" component, and PC2 can be 
+named as the "age consumption" component.
+
+2.8 May be some of splits between categories or mapping to numerics
+should be revisited, if so what will you do differently? (3 points)
+
+One approach would be to explore alternative methods for encoding categorical 
+variables, such as grouping the marriage status. The marriage status column would 
+be one binary column that combine all the non married people this could would be
+called "has_partner".
+
+2.9 Follow your suggestion in 2.10 and redo PCA and biplot (3 points)
+```{r}
+# Create a new column for married status
+new_data_copy$has_partner <- ifelse(new_data_copy$marital_status == "Married", 
+                                    1, 0)
+
+new_data_copy <- select(new_data_copy, -marital_status)
+
+# Exclude the "smoking" column from the dataset
+data_for_pca <- new_data_copy[, !names(new_data_copy) %in% "smoke"]
+
+# Perform PCA on the remaining columns
+pca_result <- prcomp(data_for_pca, scale. = TRUE)
+
+# Create a biplot
+biplot(pca_result, col = ifelse(new_data_copy$smoke == 1, "black", "red"), 
+       cex = 0.3)
+
+# Add labels for each point
+for(i in 1:nrow(new_data_copy)) {
+  text(pca_result$x[i,1], pca_result$x[i,2], 
+       labels = row.names(new_data_copy)[i], pos = 3, cex = 0.3)
+}
+
+# Add axis labels and title
+xlab <- paste("PC1 (", round(pca_result$sdev[1] / sum(pca_result$sdev) * 100), 
+              "%)", sep = "")
+ylab <- paste("PC2 (", round(pca_result$sdev[2] / sum(pca_result$sdev) * 100), 
+              "%)", sep = "")
+ggtitle <- "PCA Biplot of Health Survey Data"
+ggplot2::labs(x = xlab, y = ylab, title = ggtitle)
+
+# Increase plot size
+options(repr.plot.width = 25, repr.plot.height = 25)
+```
+
+# Part 3. Freestyle. (27 points).
+
+Get the data set from your final project (or find something suitable).
+The data set should have at least four variables and it shouldn't be
+used in class PCA examples: iris, mpg, diamonds and so on).
+
+-   Convert a columns to proper format (9 points)
+```{r}
+# Import Libs
+library(caret)
+
+# Read CSV into DataFrame from URl: 
+# https://raw.githubusercontent.com/zemingzhang1/CSE574LECC-
+# Intro-Machine-Learning/main/Assignment%200/penguins.csv
+df <- read.csv(
+'https://raw.githubusercontent.com/zemingzhang1/CSE574LECC-Intro-Machine-Learning/main/Assignment%200/penguins.csv')
+
+head(df)
+```
+
+```{r}
+# Create new data.frame with only necessary columns
+new_data = data.frame(df$species, df$island, df$bill_length_mm,df$bill_depth_mm,
+                      df$flipper_length_mm, df$body_mass_g,df$sex)
+head(new_data)
+```
+
+```{r}
+# Omit all NA in records
+new_data <- na.omit(new_data)
+head(new_data)
+```
+
+```{r}
+# convert categorical variables to numerical variables using one-hot encoding,
+# excluding the 'sex' column
+df_encoded <- predict(dummyVars(" ~ . - df.sex", data = new_data), 
+                      newdata = new_data)
+
+# And convert to data frame
+df_encoded <- data.frame(df_encoded)
+
+# view the resulting data frame
+head(df_encoded)
+```
+
+-   Perform PCA
+```{r}
+# Perform PCA on the remaining columns
+pca_result <- prcomp(df_encoded, scale. = TRUE)
+
+# Print the result
+pca_result
+```
+
+-   Make a skree plot
+```{r}
+# Extract the variance explained by each principal component
+pca_var <- pca_result$sdev^2
+pca_var_percent <- pca_var / sum(pca_var) * 100
+
+# Create a data frame for the scree plot
+scree_data <- data.frame(
+  PC = 1:length(pca_var),
+  Variance = pca_var_percent)
+
+# Create the scree plot
+ggplot(scree_data, aes(x = PC, y = Variance)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous(breaks = 1:length(pca_var)) +
+  labs(x = "Principal Component", y = "Percent Variance Explained", 
+       title = "Scree Plot")
+```
+
+-   Make a biplot
+```{r}
+# Create a biplot
+biplot(pca_result, col = ifelse(new_data$df.sex == "female", "black", "red"), 
+       cex = 0.3)
+
+# Add labels for each point
+for(i in 1:nrow(df_encoded)) {
+  text(pca_result$x[i,1], pca_result$x[i,2], labels = row.names(df_encoded)[i], 
+       pos = 3, cex = 0.8)
+}
+
+# Add axis labels and title
+xlab <- paste("PC1 (", round(pca_result$sdev[1] / sum(pca_result$sdev) * 100), 
+              "%)", sep = "")
+ylab <- paste("PC2 (", round(pca_result$sdev[2] / sum(pca_result$sdev) * 100), 
+              "%)", sep = "")
+ggtitle <- "PCA Biplot of Health Survey Data"
+ggplot2::labs(x = xlab, y = ylab, title = ggtitle)
+
+# Increase plot size
+options(repr.plot.width = 25, repr.plot.height = 25)
+```
+
+Discuss your observations (9 points) 
+
+Comment on the shape of scree plot, if you need to reduce dimensions home many 
+would you choose?
+
+Based on the scree plot, we can determine that PC1 to PC4 should be retain. 
+However since the combination of the sum of variance percentage is over 85%, 
+thus making PC3 our true elbow.
+
+Comment on observed biplot.
+
+The biplot is a representation of the relationship between the variables PC1 to 
+PC3 obtained through PCA step. The plot shows that the species groups are well 
+separated and don't overlap, indicating that the PC3 do provide a clear separation 
+between the species groups.
+
+Can we use first two PC to discriminate species?
+
+Based on the observed biplot, it seems that the first two principal components 
+(PC1 and PC2) does provide a separation among species groups. Hence, we can use 
+first two PC to discriminate species.
+
+Based on the loading vector can we name PC with some descriptive
+name?
+
+Based on the loading vector, PC1 is mainly driven by the variables related to 
+body mass, while PC2 is mainly driven by the variables related to island location 
+and PC3 is driven by bill depth. Therefore, PC1 can be named as the "body size" 
+component,PC2 can be named as the "island location" component and PC3 can be 
+named as "bill depth"component.
+
+May be some of splits between categories or mapping to numeric should
+be revisited, if so what will you do differently?
+
+One approach would be to explore alternative methods such as taking 
+out the species column.
+
+
+
+
