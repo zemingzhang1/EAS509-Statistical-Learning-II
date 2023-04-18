@@ -1,40 +1,61 @@
 ---
 title: "Homework 2. Clustering Practice (80 Points)"
-author: "Your Name"
-date: '2023-02-20'
+author: "Zeming Zhang"
+date: '2023-03-8'
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+    css: style.css
+    self_contained: no
+  pdf_document: default
+always_allow_html: true
 ---
+
+
+```{r}
+#install the package
+#install.packages("devtools")
+#install.packages("factoextra")
+#install_github("vqv/ggbiplot")
+#install.packages("fpc")
+#install.packages('psych')
+options(warn = -1)
+```
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-
+library(tidyverse)
+library(psych)
+library(fpc)
+library(devtools)
+library(factoextra)
 library(cluster)
 library(dplyr)
 library(magrittr)
 library(ggplot2)
 library(plotly)
 library(data.table)
-#library(caret)
+library(caret)
 library(ggbiplot)
 library(tidyr)
 library(cowplot)
 ```
 
 
-
 # Part 1. USArrests Dataset and Hierarchical Clustering (20 Points)
 
-Consider the “USArrests” data. It is a built-in dataset you may directly get 
-in RStudio. Perform hierarchical clustering on the observations (states) and 
+Consider the “USArrests” data. It is a built-in dataset you may directly get in RStudio. Perform hierarchical clustering on the observations (states) and 
 answer the following questions.
-
 
 ```{r}
 head(USArrests)
+```
+
+The output shows that the dataset contains 50 observations (states) and 4 variables (columns) which are the rate of crimes per 100,000 residents:
+
+```{R}
+str(USArrests)
 ```
 
 
@@ -42,35 +63,55 @@ head(USArrests)
 cluster the states. (5 points)
 
 
-```{r}
+```{R}
+# Compute Euclidean distance matrix
+dist_mat <- dist(USArrests, method = "euclidean")
 
+head(as.matrix(dist_mat)[1:50, 1:50],25)
 ```
 
 
 **Q1.2.** Cut the dendrogram at a height that results in three distinct clusters. 
 Interpret the clusters. Which states belong to which clusters? (5 points)
 
-
 ```{r}
+# Perform hierarchical clustering
+hc <- hclust(dist_mat, method = "complete")
 
+# Cut dendrogram into 3 clusters
+clusters <- cutree(hc, k = 3)
+
+# Count number of states in each cluster
+clusters
+
+# Plot dendrogram
+plot(hc, main = "Dendrogram of USArrests Data")
 ```
 
-```{r}
-
-```
 
 **Q1.3** Hierarchically cluster the states using complete linkage and Euclidean 
 distance, after scaling the variables to have standard deviation one. Obtain three clusters. Which states belong to which clusters?(5 points)
 
-```{r}
 
+```{r}
+# Scale the variables to have standard deviation one
+scaled_data <- scale(USArrests)
+
+head(scaled_data, 50)
 ```
-```{r}
-
-```
 
 ```{r}
+# Perform hierarchical clustering with complete linkage and Euclidean distance
+hc <- hclust(dist(scaled_data), method = "complete")
 
+# Cut dendrogram into 3 clusters
+clusters <- cutree(hc, k = 3)
+
+# Count number of states in each cluster
+clusters
+
+# Plot dendrogram
+plot(hc, main = "Dendrogram of USArrests Data")
 ```
 
 
@@ -80,8 +121,10 @@ the inter-observation dissimilarities are computed? Provide a justification
 for your answer. *(5 points)*
 
 
-*Answer:*...
+*Answer:*
+Scaling the variables in the USArrests dataset before computing inter-observation dissimilarities can have a significant effect on the hierarchical clustering obtained. It helps to avoid biases caused by differences in variable scales and ensures that all variables are given equal weight. Standardization is a suitable method for scaling, as it preserves the original distribution of the variables and avoids distorting the relationships between variables. 
 
+Therefore, in my opinion, the variables should be scaled before computing inter-observation dissimilarities. This will help to avoid biases caused by differences in variable scales and ensure that all variables are given equal weight. Standardization is a suitable method for scaling in this case, as it preserves the original distribution of the variables and avoids distorting the relationships between variables.
 
 
 # Part 2. Market Segmentation (60 Points)
@@ -131,7 +174,9 @@ Read "m_marketing_campaign.csv" using `data.table::fread` command, examine the d
 
 ```{r}
 # fread m_marketing_campaign.csv and save it as df (2 points)
+df <- data.frame(fread("m_marketing_campaign.csv"))
 
+head(df)
 ```
 
 
@@ -139,51 +184,66 @@ Read "m_marketing_campaign.csv" using `data.table::fread` command, examine the d
 ```{r}
 # Convert Year_Birth to Age (assume that current date is 2014-07-01) (2 points)
 
-
+df$Age <- 2014 - df$Year_Birth
 
 # Dt_Customer is a date (it is still character), convert it to membership days (i.e. number of days person is a member, name it MembershipDays)
 # hint: note European date format, use as.Date with proper format argument (2 points)
 
+Dt_Customer <- as.Date(df$Dt_Customer, format = "%d-%m-%Y")
+df$MembershipDays <- as.Date("2014-07-01") - Dt_Customer
 
-
-
+head(df)
 ```
 
 ```{r}
 # Summarize Education column (use table function) (2 points)
+table(df$Education)
 
+# Lets treat Education column as ordinal categories and use simple levels for 
+# distance calculations
 
-# Lets treat Education column as ordinal categories and use simple levels for distance calculations
 # Assuming following order of degrees:
 #    HighSchool, Associate, Bachelor, Master, PhD
 # factorize Education column (hint: use factor function with above levels)
 
-
+df$Education <- factor(df$Education, levels = c("High School", "Associate", 
+                                                    "Bachelor", "Master", 
+                                                    "PhD"))
+head(df)
 ```
 
 ```{r}
 # Summarize Marital_Status column (use table function) 
+table(df$Marital_Status)
 
-
-# Lets convert single Marital_Status categories for 5 separate binary categories  (2 points)
+# Lets convert single Marital_Status categories for 5 separate binary categories  
+# (2 points)
 # Divorced, Married, Single, Together and Widow, the value will be 1 if customer 
 # is in that category and 0 if customer is not
-# hint: use dummyVars from caret package, model.matrix or simple comparison (there are only 5 groups)
+# hint: use dummyVars from caret package, model.matrix or simple comparison 
+# (there are only 5 groups)
+# Convert Marital_Status to separate binary categories
+marital_dummies <- dummyVars(~ Marital_Status, data = df)
+df_dummies <- predict(marital_dummies, newdata = df)
+df <- cbind(df, df_dummies)
+df <- df[complete.cases(df), ]
 
-
+head(df)
 ```
 
 ```{r}
 # lets remove columns which we will no longer use:
 # remove ID, Year_Birth, Dt_Customer, Marital_Status
 # and save it as df_sel 
-
+df_sel <- df[, !(names(df) %in% c("ID", "Year_Birth", "Dt_Customer", 
+                                      "Marital_Status"))]
 
 # Convert Education to integers 
 # hint: use as.integer function, if you use factor function earlier 
 # properly then HighSchool will be 1, Associate will be 2 and so on)
+df_sel$Education <- as.integer(df_sel$Education)
 
-
+head(df_sel)
 ```
 
 
@@ -191,8 +251,10 @@ Read "m_marketing_campaign.csv" using `data.table::fread` command, examine the d
 # lets scale (2 points)
 # run scale function on df_sel and save it as df_scale
 # that will be our scaled values which we will use for analysis
+df_scale <- as.data.frame(scale(df_sel[, sapply(df_sel, is.numeric)]))
+df_sel <- cbind(df_scale, df_sel[, !sapply(df_sel, is.numeric)])
 
-
+head(df_scale)
 ```
 
 ## PCA
@@ -200,47 +262,96 @@ Read "m_marketing_campaign.csv" using `data.table::fread` command, examine the d
 **Q2.2.** Run PCA *(6 points)*
 
 ```{r}
+set.seed(10)
+
 # Run PCA on df_scale, make biplot and scree plot/percentage variance explained plot
 # save as pc_out, we will use pc_out$x[,1] and pc_out$x[,2] later for plotting
+df_scale <- df_scale[complete.cases(df_scale), ]
+pc_out <- prcomp(df_scale, scale. = TRUE)
 
 
+# Create biplot using ggbiplot
+biplot_gg <- ggbiplot(pc_out, obs.scale = 1, var.scale = 1,
+                      groups = df_sel$Response,
+                      ellipse = TRUE, circle = FALSE,
+                      alpha = 0.5) + 
+  theme(legend.direction = "horizontal", legend.position = "top") +
+  ggtitle("Biplot using ggbiplot")
 
+# Convert biplot to Plotly object
+ggplotly(biplot_gg)
 ```
 
 ```{r}
+# Create scree plot using ggplot2
+screeplot_gg <- ggplot(data.frame(PC = 1:length(pc_out$sdev), 
+                                  Var = pc_out$sdev^2/sum(pc_out$sdev^2)),
+                       aes(x = PC, y = Var)) +
+  geom_bar(stat = "identity", fill = "#1f77b4") +
+  geom_line(aes(x = PC, y = cumsum(Var)), color = "#2ca02c", size = 1.5) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1), labels = percent) +
+  labs(x = "Principal Component", y = "Variance Explained",
+       title = "Scree Plot / Percentage of Variance Explained") +
+  theme(plot.title = element_text(hjust = 0.4))
 
+# Convert scree plot to Plotly object
+ggplotly(screeplot_gg)
 ```
+
 
 **Q2.3** Comment on observation (any visible distinct clusters?) *(2 points)*
 
 
+Based on the given information, it appears that there may be 3 or 4 potential clusters. The data points on the right side of the graph and the directional attributes represented by the arrow lines are separated into 3 distinct groups, which suggests the possibility of 3 clusters. However, there is also a chance that there could be a fourth cluster. Further analysis and exploration of the data would be needed to determine the exact number and nature of the clusters present.
 
 
 ## Cluster with K-Means
 In questions Q2.4 to Q2.9 use K-Means method for clustering
 
+
 ### Selecting Number of Clusters
+
 
 **Q2.4** Select optimal number of clusters using elbow method. *(4 points)*
 
-
 ```{r}
+set.seed(11)
+
+fviz_nbclust(df_scale, kmeans, method = "wss", 
+             k.max= 10, nstart= 20, iter.max= 20) + 
+  geom_vline(xintercept = 3,linetype = 2) + labs(subtitle = "Elbow Method")
 
 ```
+
+
 **Q2.5** Select optimal number of clusters using Gap Statistic.*(4 points)*
 
-```{r}
 
+```{r}
+set.seed(12)
+
+gap_stat <- clusGap(df_scale, kmeans, K.max = 10, nstart = 25, B = 50)
+fviz_gap_stat(gap_stat)
 ```
+
+
 **Q2.6** Select optimal number of clusters using Silhouette method.*(4 points)*
 
-```{r}
 
+```{r}
+set.seed(13)
+
+kms <- kmeans(df_scale, centers = 4)
+plot(silhouette(kms$cluster, daisy(df_scale)), col=1:3, border=NA)
 ```
 
 
 **Q2.7** Which k will you choose based on elbow, gap statistics and silhuettes 
 as well as clustering task (market segmentation for advertisement purposes, that is two groups don't provide sufficient benefit over a single groups)?*(4 points)*
+
+
+Based on the analysis of the cluster gap method, there are two potential options for the number of clusters to choose: 5 and 7. The cluster gap method suggests that 7 clusters would be the next global maximum in terms of the gap statistic, indicating that the data may be best represented by 7 distinct clusters. However, there is also a maximum at 5 clusters on both the cluster gap graph and the elbow chart. Choosing 7 clusters would be a more reliable option as there is strong evidence from the cluster gap graph that 7 clusters are a good fit for the dataset. However, 5 clusters may also be a reasonable choice based on the elbow chart and the cluster gap graph, although it may not capture all the nuances of the data as well as 7 clusters. Ultimately, the decision of how many clusters to use will depend on the specific goals of the analysis and the trade-off between model complexity and fit to the data.
+
 
 ## Clusters Visulalization
 
@@ -249,13 +360,28 @@ Plot your k_kmeans clusters on biplot (just PC1 vs PC2) by coloring points by th
 
 
 ```{r}
+set.seed(14)
 
+# Select k_kmeans based on elbow method
+fviz_eig(pc_out, addlabels = TRUE)
+k_kmeans <- 7
+
+# Perform k-means clustering with proper seed
+km_out <- kmeans(pc_out$x[, 1:2], centers = k_kmeans, nstart = 25)
+
+# Add cluster column to original data
+df$cluster <- km_out$cluster
+
+# Plot k-means clusters on biplot
+fviz_pca_biplot(pc_out, col.ind = km_out$cluster)
 ```
+
 
 **Q2.9** Do you see any grouping? Comment on you observation.*(2 points)*
 
 
-*Answer*...
+*Answer*
+Although there are 7 centroids that are colored, it is evident from the grouping of data points that there are only 3 or 4 distinct clusters. Therefore, selecting 7 clusters would result in an excessive number of clusters.
 
 
 ## Characterizing Cluster
@@ -265,14 +391,15 @@ Based on that does one or more group have a distinct characteristics? *(8 points
 Hint: add cluster column to original df dataframe
 
 ```{r}
+# Set seed for reproducibility
+set.seed(15)
 
+# Add cluster column to original data
+df_scale$cluster <- km_out$cluster
+
+# Perform descriptive statistics analysis
+head(describeBy(df_scale[, -ncol(df_scale)], group = df_scale$cluster))
 ```
-
-
-```{r}
-
-```
-
 
 
 ## Cluster with Hierarchical Clustering
@@ -283,20 +410,46 @@ Try complete, single and average linkage.
 Plot dendagram, based on it choose linkage and number of clusters, if possible, explain your
 choice. *(8 points)*
 
-```{r}
 
+```{r}
+set.seed(16)
+
+# Perform hierarchical clustering with complete linkage
+hclust_out_complete <- hclust(dist(pc_out$x[, 1:2]), method = "complete")
+
+# Perform hierarchical clustering with single linkage
+hclust_out_single <- hclust(dist(pc_out$x[, 1:2]), method = "single")
+
+# Perform hierarchical clustering with average linkage
+hclust_out_average <- hclust(dist(pc_out$x[, 1:2]), method = "average")
 ```
 
 
 ```{r}
-
+# Plot dendrogram
+fviz_dend(hclust_out_complete, cex = 0.6)
+fviz_dend(hclust_out_single, cex = 0.6)
+fviz_dend(hclust_out_average, cex = 0.6)
 ```
+
 
 ```{r}
+# Choose linkage and number of clusters based on dendrogram
+hclust_out <- hclust_out_complete
+num_clusters <- 5
 
+# Cut tree to obtain clusters
+df$cluster <- cutree(hclust_out, k = num_clusters)
+
+# Plot dendrogram with clusters highlighted
+fviz_dend(hclust_out, k = num_clusters, cex = 0.6, 
+          k_colors = c("blue", "red", "green", "yellow", "pink"))
 ```
+
 
 # Additional grading criteria:
 
 **G3.1** Was all random methods properly seeded? *(2 points)*
 
+
+Yes, all random methods are properly seeded with seeds 10 to 16.
