@@ -1,0 +1,379 @@
+---
+title: "Homework 3. Interactive Visualization"
+author: "Zeming Zhang"
+date: '2023-02-20'
+output:
+  html_document:
+    df_print: paged
+    css: style.css
+    self_contained: no
+  pdf_document: default
+always_allow_html: true
+---
+
+```{r setup, results="hide", warning=F, message=F}
+library(data.table)
+library(dplyr)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(lubridate)
+```
+
+
+In this homework you should use plotly unless said otherwise.
+
+To create pdf version of your homework, knit it first to html and then print it to pdf. 
+Interactive plotly plots can be difficult sometimes to convert to static images suitable 
+for insertion to LaTex documents (that is knitting to PDF).
+
+Look for questions in R-chunks as comments and plain text (they are prefixed as Q<number>.<number>).
+
+# Part 1. Iris Dataset. (20 points)
+
+> "The Iris flower data set or Fisher's Iris data set is a multivariate data set 
+> introduced by the British statistician and biologist Ronald Fisher in his 1936 
+> paper The use of multiple measurements in taxonomic problems as an example of 
+> linear discriminant analysis" <https://en.wikipedia.org/wiki/Iris_flower_data_set>
+
+
+```{r}
+# Q1.1. Read the iris.csv file  (2 points)
+# hint: use fread from data.table, it is significantly faster than default methods
+#       be sure to have strings as factors (see stringsAsFactors argument)
+
+iris <- data.frame(fread("iris.csv", stringsAsFactors = TRUE))
+
+# display summary of data frame
+summary(iris)
+```
+
+
+```{r}
+# Q1.2. Show some values from data frame (2 points)
+head(iris, 100)
+```
+
+
+```{r}
+# Q1.3. Build histogram plot for Sepal.Length variable for each species using plot_ly 
+# (use color argument for grouping) (2 points)
+# should be one plot
+plot_ly(data = iris, x = ~Sepal.Length, color = ~Species, type = "histogram")
+```
+
+```{r}
+# Q1.4. Repeat previous plot with ggplot2 and convert it to plotly with ggplotly (2 points)
+# Create histogram with ggplot2
+p <- ggplot(iris, aes(x = Sepal.Length, fill = Species)) +
+  geom_histogram(position = "dodge", bins = 8, alpha = 0.8)
+
+# Convert to plotly with ggplotly
+ggplotly(p)
+```
+
+```{r}
+# Q1.5. Create facet 2 by 2 plot with histograms similar to previous but for each metric
+# (2 points)
+# hint:
+#   following conversion to long format can be useful:
+#   iris %>% gather(key = "metric", value = "value",-Species)
+#   
+
+## convert iris dataset to long format
+iris_long <- iris %>% gather(key = "metric", value = "value", -Species)
+
+plot1 <- plot_ly(iris_long %>% filter(metric %in% c("Petal.Length")),
+                 x = ~value, color = ~Species, type = "histogram",
+                 legendgroup = ~Species, showlegend = TRUE) %>%
+  layout(
+    xaxis = list(range = c(0, 8)),
+    yaxis = list(range = c(0, 40)),
+    autosize = TRUE
+  )
+
+plot2 <- plot_ly(iris_long %>% filter(metric %in% c("Petal.Width")),
+                 x = ~value, color = ~Species, type = "histogram",
+                 legendgroup = ~Species, showlegend = FALSE) %>%
+  layout(
+    xaxis = list(range = c(0, 8)),
+    yaxis = list(range = c(0, 40)),
+    autosize = TRUE
+  )
+
+plot3 <- plot_ly(iris_long %>% filter(metric %in% c("Sepal.Length")),
+                 x = ~value, color = ~Species, type = "histogram",
+                 legendgroup = ~Species, showlegend = FALSE) %>%
+  layout(
+    xaxis = list(range = c(0, 8)),
+    yaxis = list(range = c(0, 40)),
+    autosize = TRUE
+  )
+
+plot4 <- plot_ly(iris_long %>% filter(metric %in% c("Sepal.Width")),
+                 x = ~value, color = ~Species, type = "histogram",
+                 legendgroup = ~Species, showlegend = FALSE) %>%
+  layout(
+    xaxis = list(range = c(0, 8)),
+    yaxis = list(range = c(0, 40)),
+    autosize = TRUE
+  )
+
+subplot(plot1, plot2, plot3, plot4, nrows = 2, shareX = TRUE, shareY = TRUE) %>%
+  layout(
+    title = "Distribution of Iris Measurements",
+    autosize = TRUE,
+    legend = list(tracegroupgap = 100),
+    showlegend = TRUE,
+    annotations = list(
+    list(x = 0.2 , y = 1, text = "Petal Length", showarrow = F, 
+         xref='paper', yref='paper'), 
+    list(x = 0.85 , y = 1, text = "Petal Width", showarrow = F, 
+         xref='paper', yref='paper'),
+    list(x = 0.2 , y = 0.48, text = "Sepal Length", showarrow = F, 
+         xref='paper', yref='paper'), 
+    list(x = 0.85 , y = 0.48, text = "Sepal Width", showarrow = F, 
+         xref='paper', yref='paper')
+    )
+  )
+
+
+```
+
+Q1.6. Which metrics has best species separations? (2 points)
+
+From the 2 by 2 facet plot with histograms for each metric, it looks like the Petal.Width and Petal.Length metrics have the best species separations. This is because the histograms for these metrics show the least overlap between the different species, with each species having a distinct range of values for these metrics.
+
+In contrast, the Sepal.Width and Sepal.Length metrics have more overlap between the different species, with some species having similar ranges of values for these metrics. This makes it harder to distinguish between these species based on these metrics alone.
+
+```{r}
+# Q1.7. Repeat above plot but using box plot (2 points)
+
+library(plotly)
+library(tidyr)
+library(dplyr)
+
+iris_long <- iris %>% 
+  pivot_longer(cols = -Species, names_to = "metric", values_to = "value")
+
+iris_long <- cbind(iris_long %>% unite("Species_metric", Species, metric,
+                                      sep = "."), iris_long %>% select(Species))
+
+plot_ly(data = iris_long, y = ~Species_metric, x = ~value, type = "box", color 
+        
+        = ~Species, showlegend = TRUE) %>% 
+  layout(yaxis = list(title = "Interaction(Species, metric)"), 
+         xaxis = list(title = "Value"))
+
+```
+
+
+```{r}
+# Q1.8. Choose two metrics which separates species the most and use it to make scatter plot
+# color points by species (2 points)
+# create scatter plot with points colored by species
+plot <- iris %>% 
+  plot_ly(x = ~Petal.Length, y = ~Petal.Width, color = ~Species, 
+          colors = c("#1f77b4", "#ff7f0e", "#2ca02c")) %>% 
+  add_markers()
+
+plot
+```
+
+
+
+```{r}
+# Q1.9. Choose three metrics which separates species the most and use it to make 3d plot
+# color points by species (2 points)
+
+# create 3D scatter plot with points colored by species
+plot <- iris %>% 
+  plot_ly(x = ~Petal.Length, y = ~Petal.Width, z = ~Sepal.Length, 
+          color = ~Species, colors = c("#1f77b4", "#ff7f0e", "#2ca02c")) %>% 
+  add_markers()
+
+plot
+```
+
+
+Q1.10. Comment on species separation (2 points):
+
+Based on the plots we've created, we can see that the three species of iris (setosa, versicolor, and virginica) can be separated quite well using different combinations of the four measured variables (sepal length, sepal width, petal length, and petal width).
+
+The scatter plot we created using Petal.Length and Petal.Width shows that setosa flowers tend to have smaller petals than the other two species, while virginica and versicolor have similar ranges of petal lengths and widths.
+
+In the 3D scatter plot we created using Petal.Length, Petal.Width, and Sepal.Length, we can see that the three species occupy different regions of the plot, with setosa flowers having the smallest petals and sepal lengths, and virginica flowers having the largest petals and sepal lengths, with versicolor flowers falling somewhere in between.
+
+Overall, these plots suggest that the four measured variables are good indicators for distinguishing between the three iris species.
+
+# Part 2. Covid-19 Dataset. (20 points)
+
+Download [us-states.csv](https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv)
+(there is also a copy in homework assignment)
+from <https://github.com/nytimes/covid-19-data/>. 
+[README.md](https://github.com/nytimes/covid-19-data/blob/master/README.md) 
+for details on file content.
+
+```{r}
+# Q2.1. Read us-states.csv (2 points)
+# read us-states.csv file
+
+covid_data <- data.frame(fread("us-states.csv", stringsAsFactors = TRUE))
+
+# display summary of data frame
+summary(covid_data)
+```
+
+```{r}
+# Q2.2. Show some values from dataframe 
+
+# view first few rows of data
+head(covid_data, 50)
+```
+
+```{r}
+# Q2.3. Create new dataframe with new cases per month for each state (2 points)
+# hint:
+#    is cases column cumulative or not cumulative?
+
+covid_data_monthly <- data.frame(covid_data %>%
+  mutate(month = format(as.Date(date), "%Y-%m")) %>%
+  group_by(state, fips, month) %>%
+  summarize(cases_cumulative = max(cases),
+            deaths_cumulative = max(deaths),
+            new_cases = max(cases) - min(cases))) 
+
+covid_data_monthly
+```
+The cases column in the covid_data data frame is cumulative, so we need to compute the number of new cases per month for each state.
+
+```{r}
+# Q2.4.Using previous dataframe plot new monthly cases in states, group by states
+# The resulting plot is busy, use interactive plotly capabilities to limit number 
+# of displayed states
+# (2 points)
+
+# The resulting plot is busy, use interactive plotly capabilities to limit number of displayed states
+covid_data_monthly_plot <- covid_data_monthly %>%
+  plot_ly(x = ~month, y = ~new_cases, color = ~state, 
+         type = "scatter", mode = "lines") %>% 
+         layout(title = "New monthly cases of COVID-19 in each state",
+         xaxis = list(title = "Month"),
+         yaxis = list(title = "New cases"),
+         hovermode = "closest")
+covid_data_monthly_plot %>%
+  config(displayModeBar = F) %>% 
+  add_annotations(x = "2022-01", y = 2950000, text = 
+                    "Peak of new monthly cases") 
+# annotation to inform user to hover over line to see state name
+```
+
+```{r}
+# Q2.5.Plot new monthly cases only in NY state 
+# (2 points)
+
+# Filter the data for the state of New York
+ny_covid_data_monthly <- covid_data_monthly %>% filter(state == "New York")
+
+# Create a scatter plot of new monthly cases in NY
+ny_covid_data_monthly_plot <- plot_ly(ny_covid_data_monthly, x = ~month, 
+                              y = ~new_cases, type = "scatter", 
+                              mode = "markers") %>%
+  layout(title = "New monthly cases of COVID-19 in New York",
+         xaxis = list(title = "Month"),
+         yaxis = list(title = "New cases"),
+         hovermode = "closest")
+
+ny_covid_data_monthly_plot
+```
+
+```{r}
+# Q2.6. Found the year-month with highest cases in NY state 
+# (2 points)
+
+# Filter the data for the state of New York
+ny_covid_data_monthly <- covid_data_monthly %>% filter(state == "New York")
+
+# Find the row with the highest number of new cases
+max_cases_row <- ny_covid_data_monthly %>% slice(which.max(new_cases))
+
+# Display the row with the year-month and number of new cases
+max_cases_row
+```
+
+```{r}
+# Q2.7. Plot new cases in determined above year-month
+# using USA state map, color each state by number of cases  (3 points)
+# hint:
+#   there two build in constants in R: state.abb and state.name
+#   to convert full name to abbreviation
+
+# Group the data by state and get the top row for each state with the highest new cases
+
+state_codes <- data.frame(state.name, state.abb)
+names(state_codes) <- c("state", "abbr")
+covid_data_monthly$abbr <- state_codes[match(covid_data_monthly$state, 
+                                             state_codes$state), "abbr"]
+
+state_cases <- covid_data_monthly %>%
+  group_by(state) %>%
+  top_n(1, new_cases) %>%
+  ungroup()
+
+state_cases
+
+# Create the plotly USA state map
+fig <- plot_geo(state_cases, locationmode = "USA-states") %>%
+  add_trace(
+    z = state_cases$new_cases,
+    locations = state_cases$abbr,
+    text = paste("State: ", state_cases$state, "<br>",
+                 "New cases: ", state_cases$new_cases),
+    hoverinfo = "text",
+    type = "choropleth",
+    showscale = TRUE
+  ) %>%
+  layout(
+    title = "COVID-19 New Cases by State",
+    geo = list(scope = "usa",
+               projection = list(type = "albers usa")),
+    margin = list(l = 0, r = 0, b = 0, t = 40))
+
+# Display the plotly map
+fig
+```
+
+
+```{r}
+# Q2.8. Add animation capability (3 points)
+# hint:
+#     for variable frame you need either integer or character/factorial so 
+#     convert date to character or factorial
+
+# Create the plotly USA state map
+fig <- plot_geo(covid_data_monthly, locationmode = "USA-states" , frame = ~month) %>%
+  add_trace(
+    z = covid_data_monthly$new_cases,
+    locations = covid_data_monthly$abbr,
+    text = paste("State: ", covid_data_monthly$state, "<br>",
+                 "New cases: ", covid_data_monthly$new_cases),
+    hoverinfo = "text",
+    type = "choropleth",
+    showscale = TRUE
+  ) %>%
+  layout(
+    title = "COVID-19 New Cases by State",
+    geo = list(scope = "usa",
+               projection = list(type = "albers usa")),
+    margin = list(l = 0, r = 0, b = 0, t = 40))
+
+# Display the plotly map
+fig
+```
+
+
+Q2.9. Compare animated plot from Q2.8 to plots from Q2.4/Q2.5 
+
+The animated plot from Q2.8 is useful for visualizing the temporal evolution of COVID-19 new cases by state over time. It allows us to see how the new cases have changed over the months and how they compare across different states. This type of plot is particularly useful for detecting trends and patterns in the data.On the other hand, the plots from Q2.4/Q2.5 are useful for comparing the COVID-19 new cases across states at a specific point in time (i.e., September 2021). They provide a snapshot of the data and allow us to see how the new cases are distributed geographically. This type of plot is particularly useful for comparing the relative new case counts across different states.
+
+Therefore, the choice between the two types of plots depends on the specific question being asked and the goal of the analysis. If the goal is to analyze the temporal evolution of new cases over time, the animated plot from Q2.8 would be preferred. If the goal is to compare new cases across states at a specific point in time, the plots from Q2.4/Q2.5 would be preferred.
